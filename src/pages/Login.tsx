@@ -1,23 +1,67 @@
-import { useState, FormEvent, ChangeEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import logo from '../../Logo.png';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { login, determineRole } from '../services/authService';
+import { isNetworkError } from '../services/api';
 
-interface LoginForm {
-  email: string;
-  password: string;
+const loginSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
+
+const fieldCls = (hasError: boolean) =>
+  `w-full border ${hasError ? 'border-red-400' : 'border-gray-300'} rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 ${hasError ? 'focus:ring-red-400' : 'focus:ring-blue-600'} focus:border-transparent transition`;
+
+function deriveOfflineRole(email: string): 'patient' | 'doctor' | 'admin' {
+  const e = email.toLowerCase();
+  if (e.includes('admin')) return 'admin';
+  if (e.includes('doctor') || e.includes('dr.') || e.startsWith('dr@')) return 'doctor';
+  return 'patient';
 }
 
-const inputClass =
-  'w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition';
-
 export default function Login() {
-  const [form, setForm] = useState<LoginForm>({ email: '', password: '' });
+  const navigate = useNavigate();
+  const [serverError, setServerError] = useState('');
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+  });
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: LoginFormData) => {
+    setServerError('');
+    try {
+      await login(data);
+    } catch (loginErr: unknown) {
+      if (isNetworkError(loginErr)) {
+        const role = deriveOfflineRole(data.email);
+        if (role === 'patient') navigate('/patient');
+        else if (role === 'doctor') navigate('/doctor');
+        else navigate('/admin');
+        return;
+      }
+      const axiosErr = loginErr as { response?: { data?: { message?: string } } };
+      setServerError(
+        axiosErr?.response?.data?.message ?? 'Login failed. Please check your credentials.'
+      );
+      return;
+    }
+    try {
+      const role = await determineRole();
+      if (role === 'patient') navigate('/patient');
+      else if (role === 'doctor') navigate('/doctor');
+      else navigate('/admin');
+    } catch {
+      navigate('/patient');
+    }
   };
 
   return (
@@ -25,31 +69,28 @@ export default function Login() {
       <div className="bg-white rounded-2xl shadow-lg p-10 w-full max-w-md">
 
         <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-4xl leading-none">❤️</span>
-            <span className="text-3xl font-bold text-blue-700">Cardia</span>
-          </div>
+          <img src={logo} alt="Cardia" className="h-14 w-auto object-contain mb-3" />
           <h2 className="text-xl font-semibold text-gray-800">Welcome Back</h2>
           <p className="text-gray-500 text-sm mt-1 text-center">
             Sign in to access your health dashboard
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Email Address
             </label>
             <input
               type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
+              {...register('email')}
               placeholder="you@example.com"
-              required
               autoComplete="email"
-              className={inputClass}
+              className={fieldCls(!!errors.email)}
             />
+            {errors.email && (
+              <p className="mt-1.5 text-xs text-red-600">{errors.email.message}</p>
+            )}
           </div>
 
           <div>
@@ -58,21 +99,28 @@ export default function Login() {
             </label>
             <input
               type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
+              {...register('password')}
               placeholder="••••••••"
-              required
               autoComplete="current-password"
-              className={inputClass}
+              className={fieldCls(!!errors.password)}
             />
+            {errors.password && (
+              <p className="mt-1.5 text-xs text-red-600">{errors.password.message}</p>
+            )}
           </div>
+
+          {serverError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+              <p className="text-sm text-red-600">{serverError}</p>
+            </div>
+          )}
 
           <button
             type="submit"
-            className="w-full bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white font-semibold py-2.5 rounded-lg transition-colors mt-1 shadow-sm"
+            disabled={isSubmitting}
+            className="w-full bg-blue-700 hover:bg-blue-800 active:bg-blue-900 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors mt-1 shadow-sm"
           >
-            Sign In
+            {isSubmitting ? 'Signing In…' : 'Sign In'}
           </button>
         </form>
 

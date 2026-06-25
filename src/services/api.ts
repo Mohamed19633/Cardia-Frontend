@@ -1,19 +1,13 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
+  baseURL: 'http://localhost:8080/api',
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 });
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
-
-api.interceptors.response.use(
-  (res) => res,
-  (err) => Promise.reject(err),
-);
+export function isNetworkError(err: unknown): boolean {
+  return axios.isAxiosError(err) && !err.response;
+}
 
 export default api;

@@ -1,18 +1,26 @@
 import api from './api';
+import type { PatientProfile } from '../types';
 
-export interface LoginCredentials {
+export interface LoginPayload {
   email: string;
   password: string;
 }
 
-export interface RegisterData {
-  name: string;
-  email: string;
-  password: string;
-  role: 'patient' | 'doctor';
-}
+export const login = (payload: LoginPayload) =>
+  api.post<{ message: string }>('/auth/login', payload);
 
-export const login = (credentials: LoginCredentials) => api.post('/auth/login', credentials);
-export const register = (data: RegisterData) => api.post('/auth/register', data);
-export const logout = () => api.post('/auth/logout');
-export const getMe = () => api.get('/auth/me');
+export const logout = () => api.get('/auth/logout');
+
+export const determineRole = async (): Promise<'patient' | 'doctor' | 'admin'> => {
+  try {
+    await api.get<PatientProfile>('/patient/me');
+    return 'patient';
+  } catch {
+    try {
+      await api.get('/doctor/patients');
+      return 'doctor';
+    } catch {
+      return 'admin';
+    }
+  }
+};
