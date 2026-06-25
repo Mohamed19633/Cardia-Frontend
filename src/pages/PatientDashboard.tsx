@@ -1,22 +1,9 @@
-import { useState, FormEvent, ChangeEvent } from 'react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 
 type RiskLevel = 'Low' | 'Moderate' | 'High';
-
-interface PredictionForm {
-  age: string;
-  sex: string;
-  cp: string;
-  trestbps: string;
-  chol: string;
-  fbs: string;
-  restecg: string;
-  thalach: string;
-  exang: string;
-  oldpeak: string;
-  slope: string;
-  ca: string;
-  thal: string;
-}
 
 interface PredictionResult {
   probability: number;
@@ -32,10 +19,23 @@ interface Doctor {
   avatarClass: string;
 }
 
-const INITIAL_FORM: PredictionForm = {
-  age: '', sex: '', cp: '', trestbps: '', chol: '', fbs: '',
-  restecg: '', thalach: '', exang: '', oldpeak: '', slope: '', ca: '', thal: '',
-};
+const predictionSchema = z.object({
+  age:      z.coerce.number().int('Age must be a whole number').min(1, 'Age must be between 1 and 120').max(120, 'Must be at most 120'),
+  sex:      z.string().min(1, 'Please select a sex'),
+  cp:       z.string().min(1, 'Please select a chest pain type'),
+  trestbps: z.coerce.number().min(50, 'Must be between 50 and 300 mm Hg').max(300, 'Must be at most 300 mm Hg'),
+  chol:     z.coerce.number().min(50, 'Must be between 50 and 600 mg/dl').max(600, 'Must be at most 600 mg/dl'),
+  fbs:      z.string().min(1, 'Please select a value'),
+  restecg:  z.string().min(1, 'Please select a result'),
+  thalch:   z.coerce.number().min(50, 'Must be between 50 and 250 bpm').max(250, 'Must be at most 250 bpm'),
+  exang:    z.string().min(1, 'Please select an option'),
+  oldpeak:  z.coerce.number().min(0, 'Must be 0 or greater'),
+  slope:    z.string().min(1, 'Please select a slope'),
+  ca:       z.string().min(1, 'Please select a count'),
+  thal:     z.string().min(1, 'Please select a type'),
+});
+
+type PredictionFormData = z.infer<typeof predictionSchema>;
 
 const MOCK_DOCTORS: Doctor[] = [
   {
@@ -96,32 +96,33 @@ const RISK_CONFIG: Record<RiskLevel, {
 const RING_RADIUS = 45;
 const CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
-const inputCls =
-  'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition';
-
 const labelCls = 'block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5';
 
+const fieldCls = (hasError: boolean) =>
+  `w-full border ${hasError ? 'border-red-400' : 'border-gray-300'} rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 bg-white focus:outline-none focus:ring-2 ${hasError ? 'focus:ring-red-400' : 'focus:ring-blue-600'} focus:border-transparent transition`;
+
 export default function PatientDashboard() {
-  const [form, setForm] = useState<PredictionForm>(INITIAL_FORM);
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isValid },
+  } = useForm<PredictionFormData>({
+    resolver: zodResolver(predictionSchema),
+    mode: 'onChange',
+  });
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
+  const onSubmit = (data: PredictionFormData) => {
     setLoading(true);
     setResult(null);
-
     setTimeout(() => {
-      const age = parseInt(form.age) || 50;
-      const exangBoost  = form.exang  === '1' ? 0.14 : 0;
-      const cpBoost     = form.cp     === '0' ? 0.08 : form.cp === '3' ? -0.04 : 0;
-      const thalBoost   = form.thal   === '3' ? 0.12 : form.thal === '2' ? 0.06 : 0;
-      const base        = age > 55 ? 0.60 : 0.26;
-      const prob        = Math.min(0.97, Math.max(0.04, base + exangBoost + cpBoost + thalBoost + (Math.random() * 0.1 - 0.05)));
+      const exangBoost = data.exang === '1' ? 0.14 : 0;
+      const cpBoost    = data.cp    === '0' ? 0.08 : data.cp === '3' ? -0.04 : 0;
+      const thalBoost  = data.thal  === '3' ? 0.12 : data.thal === '2' ? 0.06 : 0;
+      const base       = data.age > 55 ? 0.60 : 0.26;
+      const prob       = Math.min(0.97, Math.max(0.04, base + exangBoost + cpBoost + thalBoost + (Math.random() * 0.1 - 0.05)));
       const probability = Math.round(prob * 100) / 100;
       const riskLevel: RiskLevel = probability >= 0.65 ? 'High' : probability >= 0.35 ? 'Moderate' : 'Low';
       setResult({ probability, riskLevel });
@@ -168,36 +169,42 @@ export default function PatientDashboard() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 lg:p-8">
+          <form onSubmit={handleSubmit(onSubmit)} className="p-6 lg:p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
 
               <div>
                 <label className={labelCls}>Age</label>
                 <input
-                  type="number" name="age" value={form.age} onChange={handleChange}
-                  placeholder="e.g. 52" min={1} max={120} required
-                  className={inputCls}
+                  type="number"
+                  {...register('age')}
+                  placeholder="e.g. 52"
+                  min={1}
+                  max={120}
+                  className={fieldCls(!!errors.age)}
                 />
+                {errors.age && <p className="mt-1.5 text-xs text-red-600">{errors.age.message}</p>}
               </div>
 
               <div>
                 <label className={labelCls}>Sex</label>
-                <select name="sex" value={form.sex} onChange={handleChange} required className={inputCls}>
+                <select {...register('sex')} className={fieldCls(!!errors.sex)}>
                   <option value="">Select sex</option>
                   <option value="1">Male</option>
                   <option value="0">Female</option>
                 </select>
+                {errors.sex && <p className="mt-1.5 text-xs text-red-600">{errors.sex.message}</p>}
               </div>
 
               <div>
                 <label className={labelCls}>Chest Pain Type (cp)</label>
-                <select name="cp" value={form.cp} onChange={handleChange} required className={inputCls}>
+                <select {...register('cp')} className={fieldCls(!!errors.cp)}>
                   <option value="">Select type</option>
                   <option value="0">Typical Angina</option>
                   <option value="1">Atypical Angina</option>
                   <option value="2">Non-anginal Pain</option>
                   <option value="3">Asymptomatic</option>
                 </select>
+                {errors.cp && <p className="mt-1.5 text-xs text-red-600">{errors.cp.message}</p>}
               </div>
 
               <div>
@@ -206,10 +213,14 @@ export default function PatientDashboard() {
                   <span className="ml-1 normal-case font-normal text-gray-400">(mm Hg)</span>
                 </label>
                 <input
-                  type="number" name="trestbps" value={form.trestbps} onChange={handleChange}
-                  placeholder="e.g. 130" min={50} max={250} required
-                  className={inputCls}
+                  type="number"
+                  {...register('trestbps')}
+                  placeholder="e.g. 130"
+                  min={50}
+                  max={300}
+                  className={fieldCls(!!errors.trestbps)}
                 />
+                {errors.trestbps && <p className="mt-1.5 text-xs text-red-600">{errors.trestbps.message}</p>}
               </div>
 
               <div>
@@ -218,29 +229,35 @@ export default function PatientDashboard() {
                   <span className="ml-1 normal-case font-normal text-gray-400">(mg/dl)</span>
                 </label>
                 <input
-                  type="number" name="chol" value={form.chol} onChange={handleChange}
-                  placeholder="e.g. 245" min={100} max={600} required
-                  className={inputCls}
+                  type="number"
+                  {...register('chol')}
+                  placeholder="e.g. 245"
+                  min={50}
+                  max={600}
+                  className={fieldCls(!!errors.chol)}
                 />
+                {errors.chol && <p className="mt-1.5 text-xs text-red-600">{errors.chol.message}</p>}
               </div>
 
               <div>
                 <label className={labelCls}>Fasting Blood Sugar (fbs)</label>
-                <select name="fbs" value={form.fbs} onChange={handleChange} required className={inputCls}>
+                <select {...register('fbs')} className={fieldCls(!!errors.fbs)}>
                   <option value="">Select level</option>
                   <option value="1">{'>'} 120 mg/dl</option>
                   <option value="0">{'≤'} 120 mg/dl</option>
                 </select>
+                {errors.fbs && <p className="mt-1.5 text-xs text-red-600">{errors.fbs.message}</p>}
               </div>
 
               <div>
                 <label className={labelCls}>Resting ECG Results</label>
-                <select name="restecg" value={form.restecg} onChange={handleChange} required className={inputCls}>
+                <select {...register('restecg')} className={fieldCls(!!errors.restecg)}>
                   <option value="">Select result</option>
                   <option value="0">Normal</option>
                   <option value="1">ST-T Wave Abnormality</option>
                   <option value="2">Left Ventricular Hypertrophy</option>
                 </select>
+                {errors.restecg && <p className="mt-1.5 text-xs text-red-600">{errors.restecg.message}</p>}
               </div>
 
               <div>
@@ -249,19 +266,24 @@ export default function PatientDashboard() {
                   <span className="ml-1 normal-case font-normal text-gray-400">(bpm)</span>
                 </label>
                 <input
-                  type="number" name="thalach" value={form.thalach} onChange={handleChange}
-                  placeholder="e.g. 150" min={60} max={220} required
-                  className={inputCls}
+                  type="number"
+                  {...register('thalch')}
+                  placeholder="e.g. 150"
+                  min={50}
+                  max={250}
+                  className={fieldCls(!!errors.thalch)}
                 />
+                {errors.thalch && <p className="mt-1.5 text-xs text-red-600">{errors.thalch.message}</p>}
               </div>
 
               <div>
                 <label className={labelCls}>Exercise Induced Angina (exang)</label>
-                <select name="exang" value={form.exang} onChange={handleChange} required className={inputCls}>
+                <select {...register('exang')} className={fieldCls(!!errors.exang)}>
                   <option value="">Select option</option>
                   <option value="1">Yes</option>
                   <option value="0">No</option>
                 </select>
+                {errors.exang && <p className="mt-1.5 text-xs text-red-600">{errors.exang.message}</p>}
               </div>
 
               <div>
@@ -270,20 +292,25 @@ export default function PatientDashboard() {
                   <span className="ml-1 normal-case font-normal text-gray-400">(oldpeak)</span>
                 </label>
                 <input
-                  type="number" name="oldpeak" value={form.oldpeak} onChange={handleChange}
-                  placeholder="e.g. 1.5" min={0} max={10} step={0.1} required
-                  className={inputCls}
+                  type="number"
+                  {...register('oldpeak')}
+                  placeholder="e.g. 1.5"
+                  min={0}
+                  step={0.1}
+                  className={fieldCls(!!errors.oldpeak)}
                 />
+                {errors.oldpeak && <p className="mt-1.5 text-xs text-red-600">{errors.oldpeak.message}</p>}
               </div>
 
               <div>
                 <label className={labelCls}>Slope of Peak ST Segment</label>
-                <select name="slope" value={form.slope} onChange={handleChange} required className={inputCls}>
+                <select {...register('slope')} className={fieldCls(!!errors.slope)}>
                   <option value="">Select slope</option>
                   <option value="0">Upsloping</option>
                   <option value="1">Flat</option>
                   <option value="2">Downsloping</option>
                 </select>
+                {errors.slope && <p className="mt-1.5 text-xs text-red-600">{errors.slope.message}</p>}
               </div>
 
               <div>
@@ -291,23 +318,26 @@ export default function PatientDashboard() {
                   Major Vessels Colored
                   <span className="ml-1 normal-case font-normal text-gray-400">(ca)</span>
                 </label>
-                <select name="ca" value={form.ca} onChange={handleChange} required className={inputCls}>
+                <select {...register('ca')} className={fieldCls(!!errors.ca)}>
                   <option value="">Select count</option>
                   <option value="0">0</option>
                   <option value="1">1</option>
                   <option value="2">2</option>
                   <option value="3">3</option>
+                  <option value="4">4</option>
                 </select>
+                {errors.ca && <p className="mt-1.5 text-xs text-red-600">{errors.ca.message}</p>}
               </div>
 
               <div>
                 <label className={labelCls}>Thalassemia (thal)</label>
-                <select name="thal" value={form.thal} onChange={handleChange} required className={inputCls}>
+                <select {...register('thal')} className={fieldCls(!!errors.thal)}>
                   <option value="">Select type</option>
                   <option value="1">Normal</option>
                   <option value="2">Fixed Defect</option>
                   <option value="3">Reversible Defect</option>
                 </select>
+                {errors.thal && <p className="mt-1.5 text-xs text-red-600">{errors.thal.message}</p>}
               </div>
 
             </div>
@@ -318,7 +348,7 @@ export default function PatientDashboard() {
               </p>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={!isValid || loading}
                 className="flex items-center gap-2.5 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold px-8 py-3 rounded-xl transition-colors shadow-sm text-sm whitespace-nowrap"
               >
                 {loading ? (

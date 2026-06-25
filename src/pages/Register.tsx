@@ -1,44 +1,48 @@
-import { useState, FormEvent, ChangeEvent } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Link } from 'react-router-dom';
 
-interface RegisterForm {
-  name: string;
-  userName: string;
-  email: string;
-  password: string;
-  contactNumber: string;
-  address: string;
-  photo: File | null;
-}
+const registerSchema = z.object({
+  name: z.string().min(3, 'Name must be at least 3 characters'),
+  userName: z.string().min(3, 'Username must be at least 3 characters'),
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(5, 'Password must be at least 5 characters'),
+  contactNumber: z.string().regex(
+    /^(010|011|012|015)\d{8}$/,
+    'Enter a valid Egyptian mobile number (e.g. 01012345678)'
+  ),
+  age: z.string()
+    .refine((v) => v.trim().length > 0, 'Age is required')
+    .refine((v) => /^\d+$/.test(v.trim()), 'Age must be a positive whole number')
+    .refine((v) => {
+      const n = parseInt(v.trim(), 10);
+      return n >= 0 && n <= 150;
+    }, 'Age must be between 0 and 150'),
+  streetAddress: z.string().min(3, 'Street address must be at least 3 characters').max(100, 'Street address must be at most 100 characters'),
+  city: z.string().min(2, 'City must be at least 2 characters').max(50, 'City must be at most 50 characters'),
+  state: z.string().min(2, 'State must be at least 2 characters').max(50, 'State must be at most 50 characters'),
+  country: z.string().min(1, 'Country is required'),
+});
 
-const inputClass =
-  'w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition';
+type RegisterFormData = z.infer<typeof registerSchema>;
 
 const labelClass = 'block text-sm font-medium text-gray-700 mb-1.5';
 
+const fieldCls = (hasError: boolean) =>
+  `w-full border ${hasError ? 'border-red-400' : 'border-gray-300'} rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 ${hasError ? 'focus:ring-red-400' : 'focus:ring-blue-600'} focus:border-transparent transition`;
+
 export default function Register() {
-  const [form, setForm] = useState<RegisterForm>({
-    name: '',
-    userName: '',
-    email: '',
-    password: '',
-    contactNumber: '',
-    address: '',
-    photo: null,
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isValid },
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    mode: 'onChange',
   });
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const { name, files, value } = e.target;
-    if (name === 'photo' && files) {
-      setForm((prev) => ({ ...prev, photo: files[0] }));
-    } else {
-      setForm((prev) => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-  };
+  const onSubmit = (_data: RegisterFormData) => {};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-10">
@@ -55,129 +59,136 @@ export default function Register() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
 
             <div>
               <label className={labelClass}>Full Name</label>
               <input
                 type="text"
-                name="name"
-                value={form.name}
-                onChange={handleChange}
+                {...register('name')}
                 placeholder="John Doe"
-                required
                 autoComplete="name"
-                className={inputClass}
+                className={fieldCls(!!errors.name)}
               />
+              {errors.name && <p className="mt-1.5 text-xs text-red-600">{errors.name.message}</p>}
             </div>
 
             <div>
               <label className={labelClass}>Username</label>
               <input
                 type="text"
-                name="userName"
-                value={form.userName}
-                onChange={handleChange}
+                {...register('userName')}
                 placeholder="johndoe123"
-                required
                 autoComplete="username"
-                className={inputClass}
+                className={fieldCls(!!errors.userName)}
               />
+              {errors.userName && <p className="mt-1.5 text-xs text-red-600">{errors.userName.message}</p>}
             </div>
 
             <div>
               <label className={labelClass}>Email Address</label>
               <input
                 type="email"
-                name="email"
-                value={form.email}
-                onChange={handleChange}
+                {...register('email')}
                 placeholder="you@example.com"
-                required
                 autoComplete="email"
-                className={inputClass}
+                className={fieldCls(!!errors.email)}
               />
+              {errors.email && <p className="mt-1.5 text-xs text-red-600">{errors.email.message}</p>}
             </div>
 
             <div>
               <label className={labelClass}>Password</label>
               <input
                 type="password"
-                name="password"
-                value={form.password}
-                onChange={handleChange}
+                {...register('password')}
                 placeholder="••••••••"
-                required
                 autoComplete="new-password"
-                className={inputClass}
+                className={fieldCls(!!errors.password)}
               />
+              {errors.password && <p className="mt-1.5 text-xs text-red-600">{errors.password.message}</p>}
             </div>
 
             <div>
               <label className={labelClass}>Contact Number</label>
               <input
                 type="tel"
-                name="contactNumber"
-                value={form.contactNumber}
-                onChange={handleChange}
-                placeholder="+20 1XX XXXX XXXX"
+                {...register('contactNumber')}
+                placeholder="01012345678"
                 autoComplete="tel"
-                className={inputClass}
+                className={fieldCls(!!errors.contactNumber)}
               />
+              {errors.contactNumber && <p className="mt-1.5 text-xs text-red-600">{errors.contactNumber.message}</p>}
             </div>
 
             <div>
-              <label className={labelClass}>Address</label>
+              <label className={labelClass}>Age</label>
               <input
-                type="text"
-                name="address"
-                value={form.address}
-                onChange={handleChange}
-                placeholder="Cairo, Egypt"
-                autoComplete="street-address"
-                className={inputClass}
+                type="number"
+                {...register('age')}
+                placeholder="e.g. 25"
+                min={0}
+                max={150}
+                className={fieldCls(!!errors.age)}
               />
+              {errors.age && <p className="mt-1.5 text-xs text-red-600">{errors.age.message}</p>}
             </div>
 
             <div className="sm:col-span-2">
-              <label className={labelClass}>Profile Photo</label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg px-4 py-6 text-center hover:border-blue-400 transition-colors">
-                <input
-                  type="file"
-                  name="photo"
-                  id="photo-upload"
-                  accept="image/*"
-                  onChange={handleChange}
-                  className="hidden"
-                />
-                <label htmlFor="photo-upload" className="cursor-pointer flex flex-col items-center gap-2">
-                  <svg
-                    className="w-8 h-8 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
-                    />
-                  </svg>
-                  <span className="text-sm text-gray-600 font-medium">
-                    {form.photo ? form.photo.name : 'Click to upload a photo'}
-                  </span>
-                  <span className="text-xs text-gray-400">PNG, JPG up to 5 MB</span>
-                </label>
-              </div>
+              <label className={labelClass}>Street Address</label>
+              <input
+                type="text"
+                {...register('streetAddress')}
+                placeholder="123 Main Street"
+                autoComplete="street-address"
+                className={fieldCls(!!errors.streetAddress)}
+              />
+              {errors.streetAddress && <p className="mt-1.5 text-xs text-red-600">{errors.streetAddress.message}</p>}
             </div>
+
+            <div>
+              <label className={labelClass}>City</label>
+              <input
+                type="text"
+                {...register('city')}
+                placeholder="Cairo"
+                autoComplete="address-level2"
+                className={fieldCls(!!errors.city)}
+              />
+              {errors.city && <p className="mt-1.5 text-xs text-red-600">{errors.city.message}</p>}
+            </div>
+
+            <div>
+              <label className={labelClass}>State</label>
+              <input
+                type="text"
+                {...register('state')}
+                placeholder="Cairo Governorate"
+                autoComplete="address-level1"
+                className={fieldCls(!!errors.state)}
+              />
+              {errors.state && <p className="mt-1.5 text-xs text-red-600">{errors.state.message}</p>}
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className={labelClass}>Country</label>
+              <input
+                type="text"
+                {...register('country')}
+                placeholder="Egypt"
+                autoComplete="country-name"
+                className={fieldCls(!!errors.country)}
+              />
+              {errors.country && <p className="mt-1.5 text-xs text-red-600">{errors.country.message}</p>}
+            </div>
+
           </div>
 
           <button
             type="submit"
-            className="w-full bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white font-semibold py-2.5 rounded-lg transition-colors mt-6 shadow-sm"
+            disabled={!isValid}
+            className="w-full bg-blue-700 hover:bg-blue-800 active:bg-blue-900 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors mt-6 shadow-sm"
           >
             Create Account
           </button>
