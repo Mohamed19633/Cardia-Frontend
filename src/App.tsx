@@ -17,6 +17,7 @@ import AdminUsers from './pages/admin/AdminUsers';
 import AdminTests from './pages/admin/AdminTests';
 import AdminAppointments from './pages/admin/AdminAppointments';
 import AdminAddDoctor from './pages/admin/AdminAddDoctor';
+import ProtectedRoute from './components/ProtectedRoute';
 
 export default function App() {
   return (
@@ -26,29 +27,35 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        <Route path="/patient" element={<PatientDashboard />}>
-          <Route index element={<Navigate to="predict" replace />} />
-          <Route path="predict" element={<PatientPredict />} />
-          <Route path="appointments" element={<PatientAppointments />} />
-          <Route path="prescriptions" element={<PatientPrescriptions />} />
-          <Route path="tests" element={<PatientTests />} />
-          <Route path="doctors" element={<PatientDoctors />} />
-          <Route path="personal-details" element={<PatientPersonalDetails />} />
+        <Route element={<ProtectedRoute allowed="patient" />}>
+          <Route path="/patient" element={<PatientDashboard />}>
+            <Route index element={<Navigate to="predict" replace />} />
+            <Route path="predict" element={<PatientPredict />} />
+            <Route path="appointments" element={<PatientAppointments />} />
+            <Route path="prescriptions" element={<PatientPrescriptions />} />
+            <Route path="tests" element={<PatientTests />} />
+            <Route path="doctors" element={<PatientDoctors />} />
+            <Route path="personal-details" element={<PatientPersonalDetails />} />
+          </Route>
         </Route>
 
-        <Route path="/doctor" element={<DoctorDashboard />}>
-          <Route index element={<Navigate to="appointments" replace />} />
-          <Route path="appointments" element={<DoctorAppointments />} />
-          <Route path="patient-tests" element={<DoctorPatientTests />} />
-          <Route path="prescription" element={<DoctorPrescription />} />
+        <Route element={<ProtectedRoute allowed="doctor" />}>
+          <Route path="/doctor" element={<DoctorDashboard />}>
+            <Route index element={<Navigate to="appointments" replace />} />
+            <Route path="appointments" element={<DoctorAppointments />} />
+            <Route path="patient-tests" element={<DoctorPatientTests />} />
+            <Route path="prescription" element={<DoctorPrescription />} />
+          </Route>
         </Route>
 
-        <Route path="/admin" element={<AdminDashboard />}>
-          <Route index element={<Navigate to="users" replace />} />
-          <Route path="users" element={<AdminUsers />} />
-          <Route path="tests" element={<AdminTests />} />
-          <Route path="appointments" element={<AdminAppointments />} />
-          <Route path="add-doctor" element={<AdminAddDoctor />} />
+        <Route element={<ProtectedRoute allowed="admin" />}>
+          <Route path="/admin" element={<AdminDashboard />}>
+            <Route index element={<Navigate to="users" replace />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="tests" element={<AdminTests />} />
+            <Route path="appointments" element={<AdminAppointments />} />
+            <Route path="add-doctor" element={<AdminAddDoctor />} />
+          </Route>
         </Route>
 
         <Route path="*" element={<Navigate to="/login" replace />} />

@@ -1,13 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { usePatient } from '../../context/PatientContext';
-import { MOCK_DOCTORS } from '../../services/mockData';
-import type { ApiDoctor, PredictionItem } from '../../types';
-
-type RiskLevel = 'Low' | 'Moderate' | 'High';
+import { getDoctors } from '../../services/patientService';
+import type { ApiDoctor, PredictionItem, RiskLevel } from '../../types';
+import { getInitials, AVATAR_COLORS, fieldCls, labelSmCls } from '../../utils/formatters';
 
 interface PredictionResult {
   DateAndTime: string;
@@ -21,18 +20,18 @@ interface PredictionResult {
 
 const predictionSchema = z.object({
   age:      z.coerce.number().int('Age must be a whole number').min(1).max(120),
-  sex:      z.string().min(1, 'Please select a sex'),
-  cp:       z.string().min(1, 'Please select a chest pain type'),
+  sex:      z.enum(['0', '1'], { errorMap: () => ({ message: 'Please select a sex' }) }),
+  cp:       z.enum(['0', '1', '2', '3'], { errorMap: () => ({ message: 'Please select a chest pain type' }) }),
   trestbps: z.coerce.number().min(50, 'Must be 50–300 mm Hg').max(300),
   chol:     z.coerce.number().min(50, 'Must be 50–600 mg/dl').max(600),
-  fbs:      z.string().min(1, 'Please select a value'),
-  restecg:  z.string().min(1, 'Please select a result'),
+  fbs:      z.enum(['0', '1'], { errorMap: () => ({ message: 'Please select a value' }) }),
+  restecg:  z.enum(['0', '1', '2'], { errorMap: () => ({ message: 'Please select a result' }) }),
   thalch:   z.coerce.number().min(50, 'Must be 50–250 bpm').max(250),
-  exang:    z.string().min(1, 'Please select an option'),
-  oldpeak:  z.coerce.number().min(0, 'Must be 0 or greater'),
-  slope:    z.string().min(1, 'Please select a slope'),
-  ca:       z.string().min(1, 'Please select a count'),
-  thal:     z.string().min(1, 'Please select a type'),
+  exang:    z.enum(['0', '1'], { errorMap: () => ({ message: 'Please select an option' }) }),
+  oldpeak:  z.coerce.number().min(0, 'Must be 0 or greater').max(10),
+  slope:    z.enum(['0', '1', '2'], { errorMap: () => ({ message: 'Please select a slope' }) }),
+  ca:       z.enum(['0', '1', '2', '3', '4'], { errorMap: () => ({ message: 'Please select a count' }) }),
+  thal:     z.enum(['1', '2', '3'], { errorMap: () => ({ message: 'Please select a type' }) }),
 });
 
 type PredictionFormData = z.infer<typeof predictionSchema>;
@@ -64,25 +63,17 @@ const RISK_CONFIG: Record<RiskLevel, { badge: string; ring: string; diagnosis: s
 const RING_RADIUS = 45;
 const CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
-const labelCls = 'block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5';
-const fieldCls = (hasError: boolean) =>
-  `w-full border ${hasError ? 'border-red-400' : 'border-gray-300'} rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 bg-white focus:outline-none focus:ring-2 ${hasError ? 'focus:ring-red-400' : 'focus:ring-blue-600'} focus:border-transparent transition`;
-
-const AVATAR_COLORS = [
-  'bg-teal-100 text-teal-700',
-  'bg-indigo-100 text-indigo-700',
-  'bg-cyan-100 text-cyan-700',
-];
-
-function getInitials(name: string) {
-  return name.split(' ').filter((w) => w.length > 0).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
-}
-
 export default function PatientPredict() {
   const navigate = useNavigate();
   const { profile } = usePatient();
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [doctors, setDoctors] = useState<ApiDoctor[]>([]);
+  const [storageWarning, setStorageWarning] = useState('');
+
+  useEffect(() => {
+    getDoctors().then((res) => setDoctors(res.data)).catch(() => {});
+  }, []);
 
   const { register, handleSubmit, formState: { errors, isValid } } = useForm<PredictionFormData>({
     resolver: zodResolver(predictionSchema),
@@ -92,6 +83,7 @@ export default function PatientPredict() {
   const onSubmit = (data: PredictionFormData) => {
     setLoading(true);
     setResult(null);
+    setStorageWarning('');
     const patientName = profile?.name ?? 'Patient';
 
     setTimeout(() => {
@@ -127,16 +119,19 @@ export default function PatientPredict() {
       };
 
       try {
-        const existing: PredictionItem[] = JSON.parse(localStorage.getItem('cardia_predictions') || '[]');
+        const existing: PredictionItem[] = JSON.parse(localStorage.getItem('cardia_predictions') ?? '[]');
         localStorage.setItem('cardia_predictions', JSON.stringify([newPrediction, ...existing]));
-      } catch (_) { }
+        window.dispatchEvent(new CustomEvent('cardia:predictions-updated'));
+      } catch {
+        setStorageWarning('Result is displayed below but could not be saved locally due to browser storage limits.');
+      }
 
       setResult({
         DateAndTime: dateStr,
         belongsTo: patientName,
         diagnosis: cfg.diagnosis,
         recommendationMsg: cfg.recommendation,
-        recommendedDoctors: MOCK_DOCTORS.slice(0, cfg.doctorCount),
+        recommendedDoctors: doctors.slice(0, cfg.doctorCount),
         riskCategory,
         riskProbability,
       });
@@ -168,13 +163,13 @@ export default function PatientPredict() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
 
             <div>
-              <label className={labelCls}>Age</label>
+              <label className={labelSmCls}>Age</label>
               <input type="number" {...register('age')} placeholder="e.g. 52" min={1} max={120} className={fieldCls(!!errors.age)} />
               {errors.age && <p className="mt-1.5 text-xs text-red-600">{errors.age.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>Sex</label>
+              <label className={labelSmCls}>Sex</label>
               <select {...register('sex')} className={fieldCls(!!errors.sex)}>
                 <option value="">Select sex</option>
                 <option value="1">Male</option>
@@ -184,7 +179,7 @@ export default function PatientPredict() {
             </div>
 
             <div>
-              <label className={labelCls}>Chest Pain Type (cp)</label>
+              <label className={labelSmCls}>Chest Pain Type (cp)</label>
               <select {...register('cp')} className={fieldCls(!!errors.cp)}>
                 <option value="">Select type</option>
                 <option value="0">Typical Angina</option>
@@ -196,19 +191,19 @@ export default function PatientPredict() {
             </div>
 
             <div>
-              <label className={labelCls}>Resting Blood Pressure <span className="normal-case font-normal text-gray-400">(mm Hg)</span></label>
+              <label className={labelSmCls}>Resting Blood Pressure <span className="normal-case font-normal text-gray-400">(mm Hg)</span></label>
               <input type="number" {...register('trestbps')} placeholder="e.g. 130" min={50} max={300} className={fieldCls(!!errors.trestbps)} />
               {errors.trestbps && <p className="mt-1.5 text-xs text-red-600">{errors.trestbps.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>Serum Cholesterol <span className="normal-case font-normal text-gray-400">(mg/dl)</span></label>
+              <label className={labelSmCls}>Serum Cholesterol <span className="normal-case font-normal text-gray-400">(mg/dl)</span></label>
               <input type="number" {...register('chol')} placeholder="e.g. 245" min={50} max={600} className={fieldCls(!!errors.chol)} />
               {errors.chol && <p className="mt-1.5 text-xs text-red-600">{errors.chol.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>Fasting Blood Sugar (fbs)</label>
+              <label className={labelSmCls}>Fasting Blood Sugar (fbs)</label>
               <select {...register('fbs')} className={fieldCls(!!errors.fbs)}>
                 <option value="">Select level</option>
                 <option value="1">{'>'} 120 mg/dl</option>
@@ -218,7 +213,7 @@ export default function PatientPredict() {
             </div>
 
             <div>
-              <label className={labelCls}>Resting ECG Results</label>
+              <label className={labelSmCls}>Resting ECG Results</label>
               <select {...register('restecg')} className={fieldCls(!!errors.restecg)}>
                 <option value="">Select result</option>
                 <option value="0">Normal</option>
@@ -229,13 +224,13 @@ export default function PatientPredict() {
             </div>
 
             <div>
-              <label className={labelCls}>Max Heart Rate <span className="normal-case font-normal text-gray-400">(bpm)</span></label>
+              <label className={labelSmCls}>Max Heart Rate <span className="normal-case font-normal text-gray-400">(bpm)</span></label>
               <input type="number" {...register('thalch')} placeholder="e.g. 150" min={50} max={250} className={fieldCls(!!errors.thalch)} />
               {errors.thalch && <p className="mt-1.5 text-xs text-red-600">{errors.thalch.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>Exercise Induced Angina (exang)</label>
+              <label className={labelSmCls}>Exercise Induced Angina (exang)</label>
               <select {...register('exang')} className={fieldCls(!!errors.exang)}>
                 <option value="">Select option</option>
                 <option value="1">Yes</option>
@@ -245,13 +240,13 @@ export default function PatientPredict() {
             </div>
 
             <div>
-              <label className={labelCls}>ST Depression <span className="normal-case font-normal text-gray-400">(oldpeak)</span></label>
-              <input type="number" {...register('oldpeak')} placeholder="e.g. 1.5" min={0} step={0.1} className={fieldCls(!!errors.oldpeak)} />
+              <label className={labelSmCls}>ST Depression <span className="normal-case font-normal text-gray-400">(oldpeak)</span></label>
+              <input type="number" {...register('oldpeak')} placeholder="e.g. 1.5" min={0} max={10} step={0.1} className={fieldCls(!!errors.oldpeak)} />
               {errors.oldpeak && <p className="mt-1.5 text-xs text-red-600">{errors.oldpeak.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>Slope of Peak ST Segment</label>
+              <label className={labelSmCls}>Slope of Peak ST Segment</label>
               <select {...register('slope')} className={fieldCls(!!errors.slope)}>
                 <option value="">Select slope</option>
                 <option value="0">Upsloping</option>
@@ -262,16 +257,16 @@ export default function PatientPredict() {
             </div>
 
             <div>
-              <label className={labelCls}>Major Vessels Colored <span className="normal-case font-normal text-gray-400">(ca)</span></label>
+              <label className={labelSmCls}>Major Vessels Colored <span className="normal-case font-normal text-gray-400">(ca)</span></label>
               <select {...register('ca')} className={fieldCls(!!errors.ca)}>
                 <option value="">Select count</option>
-                {['0','1','2','3','4'].map((v) => <option key={v} value={v}>{v}</option>)}
+                {(['0','1','2','3','4'] as const).map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
               {errors.ca && <p className="mt-1.5 text-xs text-red-600">{errors.ca.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>Thalassemia (thal)</label>
+              <label className={labelSmCls}>Thalassemia (thal)</label>
               <select {...register('thal')} className={fieldCls(!!errors.thal)}>
                 <option value="">Select type</option>
                 <option value="1">Normal</option>
@@ -282,6 +277,12 @@ export default function PatientPredict() {
             </div>
 
           </div>
+
+          {storageWarning && (
+            <div className="mt-5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+              <p className="text-xs text-amber-700 font-medium">{storageWarning}</p>
+            </div>
+          )}
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 pt-5 border-t border-gray-100">
             <p className="text-xs text-gray-400 max-w-sm text-center sm:text-left">
@@ -388,53 +389,55 @@ export default function PatientPredict() {
               </div>
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-bold text-gray-800">Recommended Cardiologists</p>
-                <button
-                  onClick={() => navigate('../doctors')}
-                  className="text-xs font-semibold text-blue-700 hover:underline"
-                >
-                  View All →
-                </button>
-              </div>
-              <div className="rounded-xl border border-gray-200 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-gray-100">
-                      <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Doctor</th>
-                      <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Specialization</th>
-                      <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Hours</th>
-                      <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wider"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {result.recommendedDoctors.map((doc, i) => (
-                      <tr key={doc.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${AVATAR_COLORS[i % AVATAR_COLORS.length]}`}>
-                              {getInitials(doc.name)}
-                            </div>
-                            <p className="font-medium text-gray-900 text-xs">{doc.name}</p>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-500 hidden sm:table-cell">{doc.specialization}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500 hidden sm:table-cell">{doc.workTime}</td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => navigate('../doctors')}
-                            className="text-[11px] font-semibold bg-blue-700 hover:bg-blue-800 text-white px-3 py-1 rounded-lg transition-colors"
-                          >
-                            Book
-                          </button>
-                        </td>
+            {result.recommendedDoctors.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-bold text-gray-800">Recommended Cardiologists</p>
+                  <button
+                    onClick={() => navigate('../doctors')}
+                    className="text-xs font-semibold text-blue-700 hover:underline"
+                  >
+                    View All →
+                  </button>
+                </div>
+                <div className="rounded-xl border border-gray-200 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-gray-100">
+                        <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Doctor</th>
+                        <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Specialization</th>
+                        <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Hours</th>
+                        <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wider"></th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {result.recommendedDoctors.map((doc, i) => (
+                        <tr key={doc.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${AVATAR_COLORS[i % AVATAR_COLORS.length]}`}>
+                                {getInitials(doc.name)}
+                              </div>
+                              <p className="font-medium text-gray-900 text-xs">{doc.name}</p>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-gray-500 hidden sm:table-cell">{doc.specialization}</td>
+                          <td className="px-4 py-3 text-xs text-gray-500 hidden sm:table-cell">{doc.workTime}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => navigate('../doctors')}
+                              className="text-[11px] font-semibold bg-blue-700 hover:bg-blue-800 text-white px-3 py-1 rounded-lg transition-colors"
+                            >
+                              Book
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}

@@ -3,6 +3,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { addDoctor } from '../../services/adminService';
+import { extractErrorMessage } from '../../services/api';
+import { fieldCls, labelSmCls } from '../../utils/formatters';
 
 const addDoctorSchema = z.object({
   name: z.string().min(3, 'Full name must be at least 3 characters'),
@@ -28,11 +30,6 @@ const addDoctorSchema = z.object({
 
 type AddDoctorFormData = z.infer<typeof addDoctorSchema>;
 
-const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition';
-const labelCls = 'block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5';
-const errCls = (hasErr: boolean) =>
-  `w-full border ${hasErr ? 'border-red-400' : 'border-gray-300'} rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 bg-white focus:outline-none focus:ring-2 ${hasErr ? 'focus:ring-red-400' : 'focus:ring-indigo-600'} focus:border-transparent transition`;
-
 export default function AdminAddDoctor() {
   const navigate = useNavigate();
 
@@ -52,9 +49,8 @@ export default function AdminAddDoctor() {
       await addDoctor(data);
       navigate('/admin');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
       setError('root', {
-        message: axiosErr?.response?.data?.message ?? 'Failed to register doctor. Please try again.',
+        message: extractErrorMessage(err, 'Failed to register doctor. Please try again.'),
       });
     }
   };
@@ -84,74 +80,74 @@ export default function AdminAddDoctor() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4">
 
             <div>
-              <label className={labelCls}>Full Name *</label>
-              <input type="text" {...register('name')} placeholder="Dr. Janna Mostafa" className={errCls(!!errors.name)} />
+              <label className={labelSmCls}>Full Name *</label>
+              <input type="text" {...register('name')} placeholder="Dr. Janna Mostafa" className={fieldCls(!!errors.name, 'indigo')} />
               {errors.name && <p className="mt-1.5 text-xs text-red-600">{errors.name.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>Username *</label>
-              <input type="text" {...register('userName')} placeholder="dr.janna.mostafa" className={errCls(!!errors.userName)} />
+              <label className={labelSmCls}>Username *</label>
+              <input type="text" {...register('userName')} placeholder="dr.janna.mostafa" className={fieldCls(!!errors.userName, 'indigo')} />
               {errors.userName && <p className="mt-1.5 text-xs text-red-600">{errors.userName.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>Email Address *</label>
-              <input type="email" {...register('email')} placeholder="doctor@cardia.health" className={errCls(!!errors.email)} />
+              <label className={labelSmCls}>Email Address *</label>
+              <input type="email" {...register('email')} placeholder="doctor@cardia.health" className={fieldCls(!!errors.email, 'indigo')} />
               {errors.email && <p className="mt-1.5 text-xs text-red-600">{errors.email.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>Password *</label>
-              <input type="password" {...register('password')} placeholder="••••••••" className={errCls(!!errors.password)} />
+              <label className={labelSmCls}>Password *</label>
+              <input type="password" {...register('password')} placeholder="••••••••" className={fieldCls(!!errors.password, 'indigo')} />
               {errors.password && <p className="mt-1.5 text-xs text-red-600">{errors.password.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>Contact Number *</label>
-              <input type="tel" {...register('contactNumber')} placeholder="01012345678" className={errCls(!!errors.contactNumber)} />
+              <label className={labelSmCls}>Contact Number *</label>
+              <input type="tel" {...register('contactNumber')} placeholder="01012345678" className={fieldCls(!!errors.contactNumber, 'indigo')} />
               {errors.contactNumber && <p className="mt-1.5 text-xs text-red-600">{errors.contactNumber.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>Age *</label>
-              <input type="number" {...register('age')} placeholder="e.g. 38" min={24} max={80} className={errCls(!!errors.age)} />
+              <label className={labelSmCls}>Age *</label>
+              <input type="number" {...register('age')} placeholder="e.g. 38" min={24} max={80} className={fieldCls(!!errors.age, 'indigo')} />
               {errors.age && <p className="mt-1.5 text-xs text-red-600">{errors.age.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>Specialization *</label>
-              <input type="text" {...register('specialization')} placeholder="e.g. Interventional Cardiologist" className={errCls(!!errors.specialization)} />
+              <label className={labelSmCls}>Specialization *</label>
+              <input type="text" {...register('specialization')} placeholder="e.g. Interventional Cardiologist" className={fieldCls(!!errors.specialization, 'indigo')} />
               {errors.specialization && <p className="mt-1.5 text-xs text-red-600">{errors.specialization.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>Work Hours *</label>
-              <input type="text" {...register('workTime')} placeholder="e.g. 9:00 AM – 4:00 PM" className={errCls(!!errors.workTime)} />
+              <label className={labelSmCls}>Work Hours *</label>
+              <input type="text" {...register('workTime')} placeholder="e.g. 9:00 AM – 4:00 PM" className={fieldCls(!!errors.workTime, 'indigo')} />
               {errors.workTime && <p className="mt-1.5 text-xs text-red-600">{errors.workTime.message}</p>}
             </div>
 
             <div className="sm:col-span-2">
-              <label className={labelCls}>Street Address *</label>
-              <input type="text" {...register('streetAddress')} placeholder="5 Al-Nil Street, Maadi" className={errCls(!!errors.streetAddress)} />
+              <label className={labelSmCls}>Street Address *</label>
+              <input type="text" {...register('streetAddress')} placeholder="5 Al-Nil Street, Maadi" className={fieldCls(!!errors.streetAddress, 'indigo')} />
               {errors.streetAddress && <p className="mt-1.5 text-xs text-red-600">{errors.streetAddress.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>City *</label>
-              <input type="text" {...register('city')} placeholder="Cairo" className={errCls(!!errors.city)} />
+              <label className={labelSmCls}>City *</label>
+              <input type="text" {...register('city')} placeholder="Cairo" className={fieldCls(!!errors.city, 'indigo')} />
               {errors.city && <p className="mt-1.5 text-xs text-red-600">{errors.city.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>State / Governorate *</label>
-              <input type="text" {...register('state')} placeholder="Cairo Governorate" className={errCls(!!errors.state)} />
+              <label className={labelSmCls}>State / Governorate *</label>
+              <input type="text" {...register('state')} placeholder="Cairo Governorate" className={fieldCls(!!errors.state, 'indigo')} />
               {errors.state && <p className="mt-1.5 text-xs text-red-600">{errors.state.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>Country *</label>
-              <input type="text" {...register('country')} placeholder="Egypt" className={errCls(!!errors.country)} />
+              <label className={labelSmCls}>Country *</label>
+              <input type="text" {...register('country')} placeholder="Egypt" className={fieldCls(!!errors.country, 'indigo')} />
               {errors.country && <p className="mt-1.5 text-xs text-red-600">{errors.country.message}</p>}
             </div>
 

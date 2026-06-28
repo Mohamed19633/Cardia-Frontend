@@ -31,8 +31,14 @@ export interface UpdatePatientPayload {
   doctorEmail: string;
 }
 
-export const registerPatient = (payload: RegisterPayload) =>
-  api.post<{ message: string }>('/patient/register', payload);
+export const registerPatient = async (payload: RegisterPayload) => {
+  try {
+    return await api.post<{ message: string }>('/patient/register', payload);
+  } catch (err: unknown) {
+    if (isNetworkError(err)) return offlineResponse({ message: 'Registration successful.' });
+    throw err;
+  }
+};
 
 export const getPatientProfile = async () => {
   try {
@@ -45,9 +51,9 @@ export const getPatientProfile = async () => {
 
 export const updatePatient = async (payload: UpdatePatientPayload) => {
   try {
-    return await api.put<{ Message: string }>('/patient/update', payload);
+    return await api.put<{ message: string }>('/patient/update', payload);
   } catch (err: unknown) {
-    if (isNetworkError(err)) return offlineResponse({ Message: 'Profile updated successfully.' });
+    if (isNetworkError(err)) return offlineResponse({ message: 'Profile updated successfully.' });
     throw err;
   }
 };
@@ -63,7 +69,7 @@ export const getDoctors = async () => {
 
 export const bookAppointment = async (doctorId: number) => {
   try {
-    return await api.post<string>(`/patient/book-appointment/${doctorId}`, { id: doctorId });
+    return await api.post<string>(`/patient/book-appointment/${doctorId}`);
   } catch (err: unknown) {
     if (isNetworkError(err)) return offlineResponse('Appointment booked successfully.');
     throw err;

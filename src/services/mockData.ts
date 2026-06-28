@@ -7,10 +7,17 @@ import type {
   PrescriptionTemplate,
   AdminUser,
   AdminPrediction,
+  Appointment,
 } from '../types';
 
 export function offlineResponse<T>(data: T): AxiosResponse<T> {
-  return { data, status: 200, statusText: 'OK' } as unknown as AxiosResponse<T>;
+  return {
+    data,
+    status: 200,
+    statusText: 'OK',
+    headers: {},
+    config: { headers: {} },
+  } as unknown as AxiosResponse<T>;
 }
 
 export const MOCK_PATIENT_PROFILE: PatientProfile = {
@@ -215,6 +222,16 @@ export const MOCK_ADMIN_USERS: AdminUser[] = [
     country: 'Egypt',
     roleName: 'PATIENT',
   },
+];
+
+export const MOCK_APPOINTMENTS: Appointment[] = [
+  { id: 1, patientName: 'Ahmed Hassan', patientContact: '+20 100 123 4567', patientInitials: 'AH', avatarClass: 'bg-blue-100 text-blue-700',    doctorName: 'Dr. Karim Nour',     date: 'Jun 30, 2026', time: '10:00 AM', status: 'upcoming'   },
+  { id: 2, patientName: 'Sara Mohamed', patientContact: '+20 101 987 6543', patientInitials: 'SM', avatarClass: 'bg-purple-100 text-purple-700', doctorName: 'Dr. Karim Nour',     date: 'Jun 30, 2026', time: '11:30 AM', status: 'upcoming'   },
+  { id: 3, patientName: 'Khaled Ali',   patientContact: '+20 105 876 5432', patientInitials: 'KA', avatarClass: 'bg-teal-100 text-teal-700',    doctorName: 'Dr. Sara Hassan',    date: 'Jun 28, 2026', time: '09:00 AM', status: 'completed'  },
+  { id: 4, patientName: 'Nour El-Din',  patientContact: '+20 103 444 9988', patientInitials: 'NE', avatarClass: 'bg-orange-100 text-orange-700', doctorName: 'Dr. Sara Hassan',    date: 'Jun 27, 2026', time: '02:00 PM', status: 'completed'  },
+  { id: 5, patientName: 'Omar Farouk',  patientContact: '+20 104 321 7654', patientInitials: 'OF', avatarClass: 'bg-pink-100 text-pink-700',    doctorName: 'Dr. Khaled Mansour', date: 'Jun 25, 2026', time: '03:30 PM', status: 'upcoming'   },
+  { id: 6, patientName: 'Ahmed Hassan', patientContact: '+20 100 123 4567', patientInitials: 'AH', avatarClass: 'bg-blue-100 text-blue-700',    doctorName: 'Dr. Karim Nour',     date: 'Jun 20, 2026', time: '10:00 AM', status: 'cancelled'  },
+  { id: 7, patientName: 'Sara Mohamed', patientContact: '+20 101 987 6543', patientInitials: 'SM', avatarClass: 'bg-purple-100 text-purple-700', doctorName: 'Dr. Khaled Mansour', date: 'Jul 3, 2026',  time: '01:00 PM', status: 'upcoming'   },
 ];
 
 export const MOCK_ADMIN_PREDICTIONS: AdminPrediction[] = [

@@ -1,10 +1,11 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import logo from '../../Logo.png';
+import { logout } from '../services/authService';
 
 const NAV = [
-  { to: 'appointments',  label: 'Appointments'        },
+  { to: 'appointments',  label: 'Appointments'         },
   { to: 'patient-tests', label: 'Patient Medical Tests' },
-  { to: 'prescription',  label: 'Write Prescription'  },
+  { to: 'prescription',  label: 'Write Prescription'   },
 ];
 
 const STAT_CARDS = [
@@ -15,6 +16,10 @@ const STAT_CARDS = [
 ];
 
 export default function DoctorDashboard() {
+  const handleSignOut = () => {
+    logout().finally(() => window.location.replace('/login'));
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="bg-white border-b border-gray-200">
@@ -27,10 +32,18 @@ export default function DoctorDashboard() {
                 <p className="text-sm text-gray-500">Welcome back, <span className="font-semibold text-blue-700">Dr. Karim Nour</span></p>
               </div>
             </div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
-              On Duty
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+                On Duty
+              </span>
+              <button
+                onClick={handleSignOut}
+                className="text-xs font-semibold text-gray-500 hover:text-gray-800 transition-colors"
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pb-4">
             {STAT_CARDS.map((s) => (

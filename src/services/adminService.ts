@@ -1,7 +1,7 @@
 import api from './api';
 import { isNetworkError } from './api';
-import { offlineResponse, MOCK_ADMIN_USERS, MOCK_ADMIN_PREDICTIONS } from './mockData';
-import type { AdminUser, AdminPrediction } from '../types';
+import { offlineResponse, MOCK_ADMIN_USERS, MOCK_ADMIN_PREDICTIONS, MOCK_APPOINTMENTS } from './mockData';
+import type { AdminUser, AdminPrediction, Appointment } from '../types';
 
 export interface AddDoctorPayload {
   name: string;
@@ -85,6 +85,24 @@ export const deleteAdminPrediction = async (id: number) => {
     return await api.delete<string>(`/admin/predictions/${id}`);
   } catch (err: unknown) {
     if (isNetworkError(err)) return offlineResponse('Prediction deleted successfully.');
+    throw err;
+  }
+};
+
+export const getAdminAppointments = async () => {
+  try {
+    return await api.get<Appointment[]>('/admin/appointments');
+  } catch (err: unknown) {
+    if (isNetworkError(err)) return offlineResponse(MOCK_APPOINTMENTS);
+    throw err;
+  }
+};
+
+export const deleteAdminAppointment = async (id: number) => {
+  try {
+    return await api.delete<string>(`/admin/appointments/${id}`);
+  } catch (err: unknown) {
+    if (isNetworkError(err)) return offlineResponse('Appointment deleted successfully.');
     throw err;
   }
 };

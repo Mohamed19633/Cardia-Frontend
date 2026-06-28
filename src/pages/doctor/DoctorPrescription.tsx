@@ -4,6 +4,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { getPrescriptionTemplate, savePrescription } from '../../services/doctorService';
+import { extractErrorMessage } from '../../services/api';
+import { fieldCls, labelSmCls } from '../../utils/formatters';
 
 interface LocationState {
   patientId?: number;
@@ -22,9 +24,6 @@ const prescriptionSchema = z.object({
 });
 
 type PrescriptionFormData = z.infer<typeof prescriptionSchema>;
-
-const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition';
-const labelCls = 'block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5';
 
 export default function DoctorPrescription() {
   const location = useLocation();
@@ -99,8 +98,8 @@ export default function DoctorPrescription() {
         content: buildContent(data),
       });
       setSaved(true);
-    } catch {
-      setServerError('Failed to save prescription. Please try again.');
+    } catch (err: unknown) {
+      setServerError(extractErrorMessage(err, 'Failed to save prescription. Please try again.'));
     }
   };
 
@@ -188,86 +187,86 @@ export default function DoctorPrescription() {
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
-              <label className={labelCls}>Patient Name</label>
+              <label className={labelSmCls}>Patient Name</label>
               <input
                 type="text"
                 {...register('patientName')}
                 placeholder="Patient full name"
-                className={inputCls}
+                className={fieldCls(!!errors.patientName, 'indigo')}
               />
               {errors.patientName && <p className="mt-1.5 text-xs text-red-600">{errors.patientName.message}</p>}
             </div>
             <div>
-              <label className={labelCls}>Doctor Name</label>
+              <label className={labelSmCls}>Doctor Name</label>
               <input
                 type="text"
                 {...register('doctorName')}
                 placeholder="Dr. Full Name"
-                className={inputCls}
+                className={fieldCls(!!errors.doctorName, 'indigo')}
               />
               {errors.doctorName && <p className="mt-1.5 text-xs text-red-600">{errors.doctorName.message}</p>}
             </div>
             <div>
-              <label className={labelCls}>Prescription Date</label>
+              <label className={labelSmCls}>Prescription Date</label>
               <input
                 type="date"
                 {...register('prescriptionDate')}
-                className={inputCls}
+                className={fieldCls(!!errors.prescriptionDate, 'indigo')}
               />
               {errors.prescriptionDate && <p className="mt-1.5 text-xs text-red-600">{errors.prescriptionDate.message}</p>}
             </div>
             <div>
-              <label className={labelCls}>Treatment Duration</label>
+              <label className={labelSmCls}>Treatment Duration</label>
               <input
                 type="text"
                 {...register('duration')}
                 placeholder="e.g. 3 months"
-                className={inputCls}
+                className={fieldCls(!!errors.duration, 'indigo')}
               />
               {errors.duration && <p className="mt-1.5 text-xs text-red-600">{errors.duration.message}</p>}
             </div>
           </div>
 
           <div>
-            <label className={labelCls}>Medication</label>
+            <label className={labelSmCls}>Medication</label>
             <input
               type="text"
               {...register('medication')}
               placeholder="e.g. Aspirin 75 mg, Atorvastatin 40 mg"
-              className={inputCls}
+              className={fieldCls(!!errors.medication, 'indigo')}
             />
             {errors.medication && <p className="mt-1.5 text-xs text-red-600">{errors.medication.message}</p>}
           </div>
 
           <div>
-            <label className={labelCls}>Dosage Instructions</label>
+            <label className={labelSmCls}>Dosage Instructions</label>
             <input
               type="text"
               {...register('dosage')}
               placeholder="e.g. Once daily after meals; Atorvastatin at night"
-              className={inputCls}
+              className={fieldCls(!!errors.dosage, 'indigo')}
             />
             {errors.dosage && <p className="mt-1.5 text-xs text-red-600">{errors.dosage.message}</p>}
           </div>
 
           <div>
-            <label className={labelCls}>Prescription Content / Diagnosis Summary</label>
+            <label className={labelSmCls}>Prescription Content / Diagnosis Summary</label>
             <textarea
               {...register('summary')}
               placeholder="Summarize clinical findings, working diagnosis, and management plan…"
               rows={4}
-              className={`${inputCls} resize-none`}
+              className={`${fieldCls(!!errors.summary, 'indigo')} resize-none`}
             />
             {errors.summary && <p className="mt-1.5 text-xs text-red-600">{errors.summary.message}</p>}
           </div>
 
           <div>
-            <label className={labelCls}>Warnings &amp; Notes</label>
+            <label className={labelSmCls}>Warnings &amp; Notes</label>
             <textarea
               {...register('warnings')}
               placeholder="Contraindications, dietary restrictions, follow-up schedule, emergency signs…"
               rows={3}
-              className={`${inputCls} resize-none`}
+              className={`${fieldCls(false, 'indigo')} resize-none`}
             />
           </div>
 

@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getPatientPredictions, getPrescriptionByPrediction } from '../../services/doctorService';
 import type { PredictionItem, PrescriptionTemplate } from '../../types';
+import Spinner from '../../components/Spinner';
+import Backdrop from '../../components/Backdrop';
 
 interface LocationState {
   patientId?: number;
@@ -67,7 +69,7 @@ export default function DoctorPatientTests() {
   const latestIndex = predictions.length > 0
     ? predictions.reduce(
         (maxIdx, pred, idx) =>
-          pred.DateAndTime > predictions[maxIdx].DateAndTime ? idx : maxIdx,
+          new Date(pred.DateAndTime).getTime() > new Date(predictions[maxIdx].DateAndTime).getTime() ? idx : maxIdx,
         0
       )
     : -1;
@@ -118,10 +120,7 @@ export default function DoctorPatientTests() {
 
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <svg className="w-6 h-6 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-          </svg>
+          <Spinner />
         </div>
       )}
 
@@ -145,7 +144,7 @@ export default function DoctorPatientTests() {
         const isLatest = i === latestIndex;
 
         return (
-          <div key={i} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div key={pred.id ?? i} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-wrap gap-3">
               <div className="flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${avatarClass}`}>
@@ -223,10 +222,7 @@ export default function DoctorPatientTests() {
       })}
 
       {prescriptionModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setPrescriptionModal(null); }}
-        >
+        <Backdrop onClose={() => setPrescriptionModal(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
             <div className="bg-gradient-to-r from-blue-700 to-blue-500 px-6 py-4 flex items-center justify-between">
               <div>
@@ -235,6 +231,7 @@ export default function DoctorPatientTests() {
               </div>
               <button
                 onClick={() => setPrescriptionModal(null)}
+                aria-label="Close"
                 className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
               >
                 <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -245,10 +242,7 @@ export default function DoctorPatientTests() {
             <div className="p-6">
               {prescriptionModal.loading && (
                 <div className="flex items-center justify-center py-8">
-                  <svg className="w-6 h-6 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                  </svg>
+                  <Spinner />
                 </div>
               )}
               {prescriptionModal.error && (
@@ -285,7 +279,7 @@ export default function DoctorPatientTests() {
               )}
             </div>
           </div>
-        </div>
+        </Backdrop>
       )}
     </div>
   );

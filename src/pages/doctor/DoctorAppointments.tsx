@@ -2,24 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getDoctorPatients } from '../../services/doctorService';
 import type { DoctorPatient } from '../../types';
-
-const AVATAR_COLORS = [
-  'bg-blue-100 text-blue-700',
-  'bg-purple-100 text-purple-700',
-  'bg-teal-100 text-teal-700',
-  'bg-orange-100 text-orange-700',
-  'bg-pink-100 text-pink-700',
-  'bg-green-100 text-green-700',
-];
-
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .filter((w) => w.length > 0)
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join('');
-}
+import { getInitials, AVATAR_COLORS } from '../../utils/formatters';
+import Spinner from '../../components/Spinner';
 
 export default function DoctorAppointments() {
   const navigate = useNavigate();
@@ -48,10 +32,7 @@ export default function DoctorAppointments() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <svg className="w-6 h-6 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-        </svg>
+        <Spinner />
       </div>
     );
   }

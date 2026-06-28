@@ -1,6 +1,8 @@
-import { useState, useEffect, ReactNode } from 'react';
+import { useState, useEffect } from 'react';
 import { usePatient } from '../../context/PatientContext';
 import type { PredictionItem } from '../../types';
+import Spinner from '../../components/Spinner';
+import Backdrop from '../../components/Backdrop';
 
 const RISK_BADGE: Record<string, string> = {
   High:     'bg-red-100 text-red-700 border-red-200',
@@ -17,20 +19,8 @@ const SLOPE_LABELS: Record<string, string> = { '0': 'Upsloping', '1': 'Flat', '2
 const THAL_LABELS: Record<string, string> = { '1': 'Normal', '2': 'Fixed Defect', '3': 'Reversible Defect' };
 const RESTECG_LABELS: Record<string, string> = { '0': 'Normal', '1': 'ST-T Abnormality', '2': 'LV Hypertrophy' };
 
-function Backdrop({ onClose, children }: { onClose: () => void; children: ReactNode }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      {children}
-    </div>
-  );
-}
-
 function ClinicalParamsDetail({ pred }: { pred: PredictionItem }) {
-  const hasClinical = pred.age !== undefined;
-  if (!hasClinical) {
+  if (pred.age === undefined) {
     return <p className="text-sm text-gray-400 italic text-center py-4">Clinical parameters were not recorded for this test.</p>;
   }
 
@@ -63,34 +53,44 @@ function ClinicalParamsDetail({ pred }: { pred: PredictionItem }) {
 }
 
 export default function PatientTests() {
-  const { profile, loading, error } = usePatient();
+  const { profile, loading, error, refetch } = usePatient();
   const [detailPred, setDetailPred] = useState<PredictionItem | null>(null);
   const [localPreds, setLocalPreds] = useState<PredictionItem[]>([]);
 
   useEffect(() => {
-    try {
-      const stored: PredictionItem[] = JSON.parse(localStorage.getItem('cardia_predictions') || '[]');
-      setLocalPreds(stored);
-    } catch {
-      setLocalPreds([]);
-    }
+    const read = () => {
+      try {
+        const stored: PredictionItem[] = JSON.parse(localStorage.getItem('cardia_predictions') ?? '[]');
+        setLocalPreds(stored);
+      } catch {
+        setLocalPreds([]);
+      }
+    };
+
+    read();
+    window.addEventListener('storage', read);
+    window.addEventListener('cardia:predictions-updated', read);
+    return () => {
+      window.removeEventListener('storage', read);
+      window.removeEventListener('cardia:predictions-updated', read);
+    };
   }, []);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <svg className="w-6 h-6 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-        </svg>
+        <Spinner />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+      <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center space-y-3">
         <p className="text-sm text-red-600 font-medium">{error}</p>
+        <button onClick={refetch} className="text-xs font-semibold text-red-600 hover:underline">
+          Try again
+        </button>
       </div>
     );
   }

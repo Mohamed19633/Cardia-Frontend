@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { getInitials, AVATAR_COLORS } from '../../utils/formatters';
+import Spinner from '../../components/Spinner';
 
 interface StoredAppointment {
   id: number;
@@ -21,18 +23,6 @@ function getStatusBadge(status: string) {
   return STATUS_BADGE[status] ?? 'bg-gray-100 text-gray-500 border-gray-200';
 }
 
-function getInitials(name: string) {
-  return name.split(' ').filter((w) => w.length > 0).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
-}
-
-const AVATAR_COLORS = [
-  'bg-teal-100 text-teal-700',
-  'bg-indigo-100 text-indigo-700',
-  'bg-cyan-100 text-cyan-700',
-  'bg-pink-100 text-pink-700',
-  'bg-orange-100 text-orange-700',
-];
-
 export default function PatientAppointments() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -41,12 +31,20 @@ export default function PatientAppointments() {
 
   useEffect(() => {
     try {
-      const stored: StoredAppointment[] = JSON.parse(localStorage.getItem('cardia_appointments') || '[]');
+      const stored: StoredAppointment[] = JSON.parse(localStorage.getItem('cardia_appointments') ?? '[]');
       setAppointments(stored);
     } catch {
       setAppointments([]);
     }
   }, [justBooked]);
+
+  if (appointments === null) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Spinner />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

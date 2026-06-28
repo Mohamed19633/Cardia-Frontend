@@ -5,7 +5,8 @@ import logo from '../../Logo.png';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { login, determineRole } from '../services/authService';
-import { isNetworkError } from '../services/api';
+import { isNetworkError, extractErrorMessage } from '../services/api';
+import { fieldCls } from '../utils/formatters';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -13,16 +14,6 @@ const loginSchema = z.object({
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
-
-const fieldCls = (hasError: boolean) =>
-  `w-full border ${hasError ? 'border-red-400' : 'border-gray-300'} rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 ${hasError ? 'focus:ring-red-400' : 'focus:ring-blue-600'} focus:border-transparent transition`;
-
-function deriveOfflineRole(email: string): 'patient' | 'doctor' | 'admin' {
-  const e = email.toLowerCase();
-  if (e.includes('admin')) return 'admin';
-  if (e.includes('doctor') || e.includes('dr.') || e.startsWith('dr@')) return 'doctor';
-  return 'patient';
-}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -42,23 +33,17 @@ export default function Login() {
       await login(data);
     } catch (loginErr: unknown) {
       if (isNetworkError(loginErr)) {
-        const role = deriveOfflineRole(data.email);
-        if (role === 'patient') navigate('/patient');
-        else if (role === 'doctor') navigate('/doctor');
-        else navigate('/admin');
+        localStorage.setItem('cardia_user_email', data.email);
+        const role = await determineRole();
+        navigate(`/${role}`);
         return;
       }
-      const axiosErr = loginErr as { response?: { data?: { message?: string } } };
-      setServerError(
-        axiosErr?.response?.data?.message ?? 'Login failed. Please check your credentials.'
-      );
+      setServerError(extractErrorMessage(loginErr, 'Login failed. Please check your credentials.'));
       return;
     }
     try {
       const role = await determineRole();
-      if (role === 'patient') navigate('/patient');
-      else if (role === 'doctor') navigate('/doctor');
-      else navigate('/admin');
+      navigate(`/${role}`);
     } catch {
       navigate('/patient');
     }

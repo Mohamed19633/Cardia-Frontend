@@ -1,7 +1,9 @@
-import { useState, useEffect, ChangeEvent, ReactNode } from 'react';
+import { useState, useEffect, ChangeEvent, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAdminPredictions, deleteAdminPrediction } from '../../services/adminService';
 import type { AdminPrediction } from '../../types';
+import Spinner from '../../components/Spinner';
+import Backdrop from '../../components/Backdrop';
 
 const RISK_BADGE: Record<string, string> = {
   High:     'bg-red-100 text-red-700 border-red-200',
@@ -17,25 +19,13 @@ function isPositiveResult(result: string) {
   return result?.toLowerCase().includes('heart disease') && !result?.toLowerCase().includes('no');
 }
 
-function Backdrop({ onClose, children }: { onClose: () => void; children: ReactNode }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      {children}
-    </div>
-  );
-}
-
 const CP_LABELS: Record<string, string> = { '0': 'Typical Angina', '1': 'Atypical Angina', '2': 'Non-anginal Pain', '3': 'Asymptomatic' };
 const SLOPE_LABELS: Record<string, string> = { '0': 'Upsloping', '1': 'Flat', '2': 'Downsloping' };
 const THAL_LABELS: Record<string, string> = { '1': 'Normal', '2': 'Fixed Defect', '3': 'Reversible Defect' };
 const RESTECG_LABELS: Record<string, string> = { '0': 'Normal', '1': 'ST-T Abnormality', '2': 'LV Hypertrophy' };
 
 function ClinicalParamsGrid({ p }: { p: AdminPrediction }) {
-  const hasClinical = p.age !== undefined;
-  if (!hasClinical) {
+  if (p.age === undefined) {
     return <p className="text-xs text-gray-400 italic py-2">Clinical parameters not recorded for this entry.</p>;
   }
   const params = [
@@ -48,7 +38,7 @@ function ClinicalParamsGrid({ p }: { p: AdminPrediction }) {
     { label: 'Rest ECG',           value: RESTECG_LABELS[p.restecg ?? ''] ?? p.restecg ?? '—' },
     { label: 'Max HR (thalach)',   value: `${p.thalch} bpm` },
     { label: 'Ex. Angina (exang)', value: p.exang === '1' ? 'Yes' : 'No' },
-    { label: 'ST Dep. (oldpeak)', value: String(p.oldpeak) },
+    { label: 'ST Dep. (oldpeak)',  value: String(p.oldpeak) },
     { label: 'Slope',              value: SLOPE_LABELS[p.slope ?? ''] ?? p.slope ?? '—' },
     { label: 'Vessels (ca)',       value: String(p.ca) },
     { label: 'Thalassemia (thal)', value: THAL_LABELS[p.thal ?? ''] ?? p.thal ?? '—' },
@@ -116,10 +106,7 @@ export default function AdminTests() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <svg className="w-6 h-6 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-        </svg>
+        <Spinner className="w-6 h-6 text-indigo-600" />
       </div>
     );
   }
@@ -179,8 +166,8 @@ export default function AdminTests() {
               {filtered.length === 0 ? (
                 <tr><td colSpan={5} className="px-6 py-12 text-center text-sm text-gray-400">No predictions match your filters.</td></tr>
               ) : filtered.map((p, idx) => (
-                <>
-                  <tr key={`row-${idx}`} className="hover:bg-slate-50 transition-colors">
+                <Fragment key={p.id ?? `pred-${idx}`}>
+                  <tr className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
                       <button
                         onClick={() => handlePatientClick(p.belongsTo)}
@@ -219,7 +206,7 @@ export default function AdminTests() {
                     </td>
                   </tr>
                   {expandedIdx === idx && (
-                    <tr key={`expanded-${idx}`}>
+                    <tr>
                       <td colSpan={5} className="px-6 py-4 bg-slate-50 border-b border-gray-100">
                         <div className="space-y-2">
                           <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Clinical Parameters — {p.belongsTo}</p>
@@ -228,7 +215,7 @@ export default function AdminTests() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -236,7 +223,7 @@ export default function AdminTests() {
 
         <div className="sm:hidden divide-y divide-gray-100">
           {filtered.map((p, idx) => (
-            <div key={idx} className="p-4 space-y-3">
+            <div key={p.id ?? `pred-${idx}`} className="p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <button

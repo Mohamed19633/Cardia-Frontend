@@ -1,15 +1,8 @@
-import { useState, ReactNode } from 'react';
+import { useState, useEffect } from 'react';
+import { getAdminAppointments, deleteAdminAppointment } from '../../services/adminService';
 import type { Appointment, AppointmentStatus } from '../../types';
-
-const MOCK_APPOINTMENTS: Appointment[] = [
-  { id: 1,  patientName: 'Ahmed Hassan', patientContact: '+20 100 123 4567', patientInitials: 'AH', avatarClass: 'bg-blue-100 text-blue-700',    doctorName: 'Dr. Karim Nour',     date: 'Jun 30, 2026', time: '10:00 AM', status: 'upcoming'   },
-  { id: 2,  patientName: 'Sara Mohamed', patientContact: '+20 101 987 6543', patientInitials: 'SM', avatarClass: 'bg-purple-100 text-purple-700', doctorName: 'Dr. Karim Nour',     date: 'Jun 30, 2026', time: '11:30 AM', status: 'upcoming'   },
-  { id: 3,  patientName: 'Khaled Ali',   patientContact: '+20 105 876 5432', patientInitials: 'KA', avatarClass: 'bg-teal-100 text-teal-700',    doctorName: 'Dr. Sara Hassan',    date: 'Jun 28, 2026', time: '09:00 AM', status: 'completed'  },
-  { id: 4,  patientName: 'Nour El-Din',  patientContact: '+20 103 444 9988', patientInitials: 'NE', avatarClass: 'bg-orange-100 text-orange-700', doctorName: 'Dr. Sara Hassan',    date: 'Jun 27, 2026', time: '02:00 PM', status: 'completed'  },
-  { id: 5,  patientName: 'Omar Farouk',  patientContact: '+20 104 321 7654', patientInitials: 'OF', avatarClass: 'bg-pink-100 text-pink-700',    doctorName: 'Dr. Khaled Mansour', date: 'Jun 25, 2026', time: '03:30 PM', status: 'upcoming'   },
-  { id: 6,  patientName: 'Ahmed Hassan', patientContact: '+20 100 123 4567', patientInitials: 'AH', avatarClass: 'bg-blue-100 text-blue-700',    doctorName: 'Dr. Karim Nour',     date: 'Jun 20, 2026', time: '10:00 AM', status: 'cancelled'  },
-  { id: 7,  patientName: 'Sara Mohamed', patientContact: '+20 101 987 6543', patientInitials: 'SM', avatarClass: 'bg-purple-100 text-purple-700', doctorName: 'Dr. Khaled Mansour', date: 'Jul 3, 2026',  time: '01:00 PM', status: 'upcoming'   },
-];
+import Spinner from '../../components/Spinner';
+import Backdrop from '../../components/Backdrop';
 
 const STATUS_CFG: Record<AppointmentStatus, { label: string; cls: string }> = {
   upcoming:  { label: 'Upcoming',  cls: 'bg-blue-100 text-blue-700 border-blue-200'    },
@@ -17,29 +10,54 @@ const STATUS_CFG: Record<AppointmentStatus, { label: string; cls: string }> = {
   cancelled: { label: 'Cancelled', cls: 'bg-red-100 text-red-600 border-red-200'       },
 };
 
-function Backdrop({ onClose, children }: { onClose: () => void; children: ReactNode }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      {children}
-    </div>
-  );
-}
-
 export default function AdminAppointments() {
-  const [appointments, setAppointments] = useState<Appointment[]>(MOCK_APPOINTMENTS);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [filter, setFilter]    = useState<'all' | AppointmentStatus>('all');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [filter, setFilter] = useState<'all' | AppointmentStatus>('all');
+
+  useEffect(() => {
+    getAdminAppointments()
+      .then((res) => setAppointments(res.data))
+      .catch(() => setError('Failed to load appointments. Please try again.'))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filtered = appointments.filter((a) => filter === 'all' || a.status === filter);
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteId === null) return;
-    setAppointments((prev) => prev.filter((a) => a.id !== deleteId));
-    setDeleteId(null);
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await deleteAdminAppointment(deleteId);
+      setAppointments((prev) => prev.filter((a) => a.id !== deleteId));
+      setDeleteId(null);
+    } catch {
+      setDeleteError('Delete failed. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Spinner className="w-6 h-6 text-indigo-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <p className="text-sm text-red-600 font-medium">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -91,7 +109,7 @@ export default function AdminAppointments() {
                   </td>
                   <td className="px-6 py-4">
                     <button
-                      onClick={() => setDeleteId(a.id)}
+                      onClick={() => { setDeleteId(a.id); setDeleteError(''); }}
                       className="flex items-center gap-1 text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
                     >
                       Delete
@@ -116,7 +134,7 @@ export default function AdminAppointments() {
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-xs text-gray-500">{a.date} at {a.time}</p>
-                <button onClick={() => setDeleteId(a.id)} className="text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 text-xs font-semibold px-2.5 py-1.5 rounded-lg">Delete</button>
+                <button onClick={() => { setDeleteId(a.id); setDeleteError(''); }} className="text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 text-xs font-semibold px-2.5 py-1.5 rounded-lg">Delete</button>
               </div>
             </div>
           ))}
@@ -136,10 +154,13 @@ export default function AdminAppointments() {
             </div>
             <div className="px-6 py-5">
               <p className="text-sm text-gray-600 text-center">Are you sure you want to delete this appointment? This action cannot be undone.</p>
+              {deleteError && <p className="mt-3 text-xs text-red-600 text-center">{deleteError}</p>}
             </div>
             <div className="px-6 pb-6 flex gap-3">
               <button onClick={() => setDeleteId(null)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-gray-700 font-semibold py-2.5 rounded-xl text-sm">Cancel</button>
-              <button onClick={confirmDelete} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl text-sm">Confirm Delete</button>
+              <button onClick={confirmDelete} disabled={deleting} className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl text-sm">
+                {deleting ? 'Deleting…' : 'Confirm Delete'}
+              </button>
             </div>
           </div>
         </Backdrop>

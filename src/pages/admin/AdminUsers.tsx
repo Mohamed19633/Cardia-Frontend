@@ -1,8 +1,26 @@
-import { useState, useEffect, useRef, ChangeEvent, ReactNode } from 'react';
+import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { getAdminUsers, getAdminUserById, deleteAdminUser, updateAdminUser } from '../../services/adminService';
-import type { UpdateUserPayload } from '../../services/adminService';
 import type { AdminUser } from '../../types';
+import { getInitials, AVATAR_COLORS, fieldCls, labelSmCls } from '../../utils/formatters';
+import Spinner from '../../components/Spinner';
+import Backdrop from '../../components/Backdrop';
+
+const editUserSchema = z.object({
+  userName:      z.string().min(2, 'Username must be at least 2 characters'),
+  email:         z.string().email('Enter a valid email address'),
+  contactNumber: z.string().min(6, 'Contact number is too short'),
+  age:           z.coerce.number().int('Age must be a whole number').min(1).max(120),
+  streetAddress: z.string().min(1, 'Street address is required'),
+  city:          z.string().min(1, 'City is required'),
+  state:         z.string().min(1, 'State is required'),
+  country:       z.string().min(1, 'Country is required'),
+});
+
+type EditUserFormData = z.infer<typeof editUserSchema>;
 
 const ROLE_CFG: Record<string, string> = {
   DOCTOR:  'bg-teal-100 text-teal-700 border-teal-200',
@@ -12,39 +30,6 @@ const ROLE_CFG: Record<string, string> = {
 function getRoleCls(roleName: string) {
   return ROLE_CFG[roleName?.toUpperCase()] ?? 'bg-gray-100 text-gray-700 border-gray-200';
 }
-
-function getInitials(userName: string) {
-  return userName
-    .split(/[\s._-]/)
-    .filter((w) => w.length > 0)
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join('');
-}
-
-const AVATAR_COLORS = [
-  'bg-blue-100 text-blue-700',
-  'bg-purple-100 text-purple-700',
-  'bg-teal-100 text-teal-700',
-  'bg-orange-100 text-orange-700',
-  'bg-pink-100 text-pink-700',
-  'bg-green-100 text-green-700',
-  'bg-indigo-100 text-indigo-700',
-  'bg-cyan-100 text-cyan-700',
-];
-
-function Backdrop({ onClose, children }: { onClose: () => void; children: ReactNode }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      {children}
-    </div>
-  );
-}
-
-const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition';
 
 export default function AdminUsers() {
   const location = useLocation();
@@ -60,9 +45,14 @@ export default function AdminUsers() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState('');
   const [editUser, setEditUser] = useState<AdminUser | null>(null);
-  const [editForm, setEditForm] = useState<UpdateUserPayload>({ userName: '', email: '', contactNumber: '', age: 0, streetAddress: '', city: '', state: '', country: '' });
-  const [editSaving, setEditSaving] = useState(false);
-  const [editError, setEditError] = useState('');
+  const [editSaveError, setEditSaveError] = useState('');
+
+  const {
+    register: editRegister,
+    handleSubmit: editHandleSubmit,
+    reset: editReset,
+    formState: { errors: editErrors, isSubmitting: editSaving },
+  } = useForm<EditUserFormData>({ resolver: zodResolver(editUserSchema) });
 
   const fetchUsers = () => {
     setLoading(true);
@@ -101,33 +91,30 @@ export default function AdminUsers() {
 
   const openEdit = (u: AdminUser) => {
     setEditUser(u);
-    setEditError('');
-    setEditForm({
-      userName: u.userName,
-      email: u.email,
+    setEditSaveError('');
+    editReset({
+      userName:      u.userName,
+      email:         u.email,
       contactNumber: u.contactNumber,
-      age: u.age,
+      age:           u.age,
       streetAddress: u.streetAddress,
-      city: u.city,
-      state: u.state,
-      country: u.country,
+      city:          u.city,
+      state:         u.state,
+      country:       u.country,
     });
   };
 
-  const handleEditSave = async () => {
+  const handleEditSave = editHandleSubmit(async (data) => {
     if (!editUser) return;
-    setEditSaving(true);
-    setEditError('');
+    setEditSaveError('');
     try {
-      const res = await updateAdminUser(editUser.id, editForm);
+      const res = await updateAdminUser(editUser.id, data);
       setUsers((prev) => prev.map((u) => u.id === editUser.id ? { ...u, ...res.data } : u));
       setEditUser(null);
     } catch {
-      setEditError('Save failed. Please try again.');
-    } finally {
-      setEditSaving(false);
+      setEditSaveError('Save failed. Please try again.');
     }
-  };
+  });
 
   const confirmDelete = async () => {
     if (deleteId === null) return;
@@ -152,10 +139,7 @@ export default function AdminUsers() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <svg className="w-6 h-6 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-        </svg>
+        <Spinner className="w-6 h-6 text-indigo-600" />
       </div>
     );
   }
@@ -310,10 +294,7 @@ export default function AdminUsers() {
 
             {viewLoading ? (
               <div className="flex items-center justify-center py-12">
-                <svg className="w-6 h-6 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                </svg>
+                <Spinner className="w-6 h-6 text-indigo-600" />
               </div>
             ) : viewUser ? (
               <>
@@ -369,49 +350,59 @@ export default function AdminUsers() {
                 </svg>
               </button>
             </div>
-            <div className="p-6 overflow-y-auto space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Username</label>
-                  <input value={editForm.userName} onChange={(e) => setEditForm((f) => ({ ...f, userName: e.target.value }))} className={inputCls} />
+            <form onSubmit={handleEditSave} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 overflow-y-auto space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelSmCls}>Username</label>
+                    <input {...editRegister('userName')} className={fieldCls(!!editErrors.userName, 'indigo')} />
+                    {editErrors.userName && <p className="mt-1.5 text-xs text-red-600">{editErrors.userName.message}</p>}
+                  </div>
+                  <div>
+                    <label className={labelSmCls}>Email</label>
+                    <input type="email" {...editRegister('email')} className={fieldCls(!!editErrors.email, 'indigo')} />
+                    {editErrors.email && <p className="mt-1.5 text-xs text-red-600">{editErrors.email.message}</p>}
+                  </div>
+                  <div>
+                    <label className={labelSmCls}>Contact Number</label>
+                    <input {...editRegister('contactNumber')} className={fieldCls(!!editErrors.contactNumber, 'indigo')} />
+                    {editErrors.contactNumber && <p className="mt-1.5 text-xs text-red-600">{editErrors.contactNumber.message}</p>}
+                  </div>
+                  <div>
+                    <label className={labelSmCls}>Age</label>
+                    <input type="number" {...editRegister('age')} className={fieldCls(!!editErrors.age, 'indigo')} />
+                    {editErrors.age && <p className="mt-1.5 text-xs text-red-600">{editErrors.age.message}</p>}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className={labelSmCls}>Street Address</label>
+                    <input {...editRegister('streetAddress')} className={fieldCls(!!editErrors.streetAddress, 'indigo')} />
+                    {editErrors.streetAddress && <p className="mt-1.5 text-xs text-red-600">{editErrors.streetAddress.message}</p>}
+                  </div>
+                  <div>
+                    <label className={labelSmCls}>City</label>
+                    <input {...editRegister('city')} className={fieldCls(!!editErrors.city, 'indigo')} />
+                    {editErrors.city && <p className="mt-1.5 text-xs text-red-600">{editErrors.city.message}</p>}
+                  </div>
+                  <div>
+                    <label className={labelSmCls}>State</label>
+                    <input {...editRegister('state')} className={fieldCls(!!editErrors.state, 'indigo')} />
+                    {editErrors.state && <p className="mt-1.5 text-xs text-red-600">{editErrors.state.message}</p>}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className={labelSmCls}>Country</label>
+                    <input {...editRegister('country')} className={fieldCls(!!editErrors.country, 'indigo')} />
+                    {editErrors.country && <p className="mt-1.5 text-xs text-red-600">{editErrors.country.message}</p>}
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Email</label>
-                  <input type="email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} className={inputCls} />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Contact Number</label>
-                  <input value={editForm.contactNumber} onChange={(e) => setEditForm((f) => ({ ...f, contactNumber: e.target.value }))} className={inputCls} />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Age</label>
-                  <input type="number" value={editForm.age} onChange={(e) => setEditForm((f) => ({ ...f, age: Number(e.target.value) }))} className={inputCls} />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Street Address</label>
-                  <input value={editForm.streetAddress} onChange={(e) => setEditForm((f) => ({ ...f, streetAddress: e.target.value }))} className={inputCls} />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">City</label>
-                  <input value={editForm.city} onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} className={inputCls} />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">State</label>
-                  <input value={editForm.state} onChange={(e) => setEditForm((f) => ({ ...f, state: e.target.value }))} className={inputCls} />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Country</label>
-                  <input value={editForm.country} onChange={(e) => setEditForm((f) => ({ ...f, country: e.target.value }))} className={inputCls} />
-                </div>
+                {editSaveError && <p className="text-xs text-red-600 text-center">{editSaveError}</p>}
               </div>
-              {editError && <p className="text-xs text-red-600 text-center">{editError}</p>}
-            </div>
-            <div className="px-6 pb-6 flex gap-3 border-t border-gray-100 pt-4">
-              <button onClick={() => setEditUser(null)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-gray-700 font-semibold py-2.5 rounded-xl text-sm transition-colors">Cancel</button>
-              <button onClick={handleEditSave} disabled={editSaving} className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">
-                {editSaving ? 'Saving…' : 'Save Changes'}
-              </button>
-            </div>
+              <div className="px-6 pb-6 flex gap-3 border-t border-gray-100 pt-4">
+                <button type="button" onClick={() => setEditUser(null)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-gray-700 font-semibold py-2.5 rounded-xl text-sm transition-colors">Cancel</button>
+                <button type="submit" disabled={editSaving} className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">
+                  {editSaving ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </Backdrop>
       )}

@@ -32,6 +32,11 @@ export function PatientProvider({ children }: { children: ReactNode }) {
 
   useEffect(fetchProfile, []);
 
+  useEffect(() => {
+    window.addEventListener('online', fetchProfile);
+    return () => window.removeEventListener('online', fetchProfile);
+  }, []);
+
   return (
     <PatientContext.Provider value={{ profile, loading, error, refetch: fetchProfile }}>
       {children}

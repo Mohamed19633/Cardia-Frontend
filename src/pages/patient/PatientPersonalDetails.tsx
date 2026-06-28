@@ -5,6 +5,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { usePatient } from '../../context/PatientContext';
 import { updatePatient } from '../../services/patientService';
+import { extractErrorMessage } from '../../services/api';
+import { fieldCls, labelCls } from '../../utils/formatters';
+import Spinner from '../../components/Spinner';
 
 const updateSchema = z.object({
   name: z.string().min(3, 'Name must be at least 3 characters'),
@@ -20,19 +23,17 @@ const updateSchema = z.object({
     .int()
     .min(0)
     .max(150, 'Age must be between 0 and 150'),
-  streetAddress: z.string().min(3).max(100),
-  city: z.string().min(2).max(50),
-  state: z.string().min(2).max(50),
+  streetAddress: z
+    .string()
+    .min(3, 'Street address must be at least 3 characters')
+    .max(100, 'Street address must be at most 100 characters'),
+  city: z.string().min(2, 'City must be at least 2 characters').max(50),
+  state: z.string().min(2, 'State must be at least 2 characters').max(50),
   country: z.string().min(1, 'Country is required'),
   doctorEmail: z.string().email('Please enter a valid doctor email address'),
 });
 
 type UpdateFormData = z.infer<typeof updateSchema>;
-
-const labelCls = 'block text-sm font-medium text-gray-700 mb-1.5';
-
-const fieldCls = (hasError: boolean) =>
-  `w-full border ${hasError ? 'border-red-400' : 'border-gray-300'} rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 ${hasError ? 'focus:ring-red-400' : 'focus:ring-blue-600'} focus:border-transparent transition`;
 
 export default function PatientPersonalDetails() {
   const navigate = useNavigate();
@@ -72,19 +73,16 @@ export default function PatientPersonalDetails() {
       refetch();
       navigate('/patient');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { Message?: string } } };
-      const msg = axiosErr?.response?.data?.Message ?? 'Update failed. Please try again.';
-      setFieldError('root', { message: msg });
+      setFieldError('root', {
+        message: extractErrorMessage(err, 'Update failed. Please try again.'),
+      });
     }
   };
 
   if (profileLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <svg className="w-6 h-6 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-        </svg>
+        <Spinner />
       </div>
     );
   }

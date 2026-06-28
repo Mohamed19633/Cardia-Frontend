@@ -1,6 +1,7 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 import logo from '../../Logo.png';
 import { PatientProvider, usePatient } from '../context/PatientContext';
+import { logout } from '../services/authService';
 
 const NAV = [
   { to: 'predict',          label: 'Risk Prediction'   },
@@ -13,7 +14,10 @@ const NAV = [
 
 function DashboardHeader() {
   const { profile, loading } = usePatient();
-  const navigate = useNavigate();
+
+  const handleSignOut = () => {
+    logout().finally(() => window.location.replace('/login'));
+  };
 
   return (
     <div className="bg-white border-b border-gray-200">
@@ -37,7 +41,7 @@ function DashboardHeader() {
               Patient
             </span>
             <button
-              onClick={() => navigate('/login')}
+              onClick={handleSignOut}
               className="text-xs font-semibold text-gray-500 hover:text-gray-800 transition-colors"
             >
               Sign Out

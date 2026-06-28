@@ -3,23 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { getDoctors, bookAppointment } from '../../services/patientService';
 import { usePatient } from '../../context/PatientContext';
 import type { ApiDoctor } from '../../types';
-
-const AVATAR_COLORS = [
-  'bg-teal-100 text-teal-700',
-  'bg-indigo-100 text-indigo-700',
-  'bg-cyan-100 text-cyan-700',
-  'bg-pink-100 text-pink-700',
-  'bg-orange-100 text-orange-700',
-];
-
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .filter((w) => w.length > 0)
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join('');
-}
+import { getInitials, AVATAR_COLORS } from '../../utils/formatters';
+import Spinner from '../../components/Spinner';
 
 export default function PatientDoctors() {
   const navigate = useNavigate();
@@ -29,6 +14,7 @@ export default function PatientDoctors() {
   const [error, setError] = useState('');
   const [bookingId, setBookingId] = useState<number | null>(null);
   const [bookError, setBookError] = useState('');
+  const [storageWarning, setStorageWarning] = useState('');
 
   useEffect(() => {
     getDoctors()
@@ -37,28 +23,40 @@ export default function PatientDoctors() {
       .finally(() => setLoading(false));
   }, []);
 
-  const saveAppointmentLocally = (doc: ApiDoctor) => {
-    const appointment = {
-      id: Date.now(),
-      patientName: profile?.name ?? 'Patient',
-      doctorName: doc.name,
-      specialization: doc.specialization,
-      date: new Date().toLocaleDateString('en-GB'),
-      time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-      status: 'upcoming',
-    };
-    try {
-      const existing = JSON.parse(localStorage.getItem('cardia_appointments') || '[]');
-      localStorage.setItem('cardia_appointments', JSON.stringify([appointment, ...existing]));
-    } catch (_) { }
-  };
-
   const handleBook = async (doc: ApiDoctor) => {
-    setBookingId(doc.id);
     setBookError('');
+    setStorageWarning('');
+
+    try {
+      const existing: { doctorName: string; status: string }[] = JSON.parse(
+        localStorage.getItem('cardia_appointments') ?? '[]'
+      );
+      if (existing.some((a) => a.doctorName === doc.name && a.status === 'upcoming')) {
+        setBookError(`You already have an upcoming appointment with ${doc.name}.`);
+        return;
+      }
+    } catch {}
+
+    setBookingId(doc.id);
     try {
       await bookAppointment(doc.id);
-      saveAppointmentLocally(doc);
+
+      try {
+        const existing: object[] = JSON.parse(localStorage.getItem('cardia_appointments') ?? '[]');
+        const appointment = {
+          id: Date.now(),
+          patientName: profile?.name ?? 'Patient',
+          doctorName: doc.name,
+          specialization: doc.specialization,
+          date: new Date().toLocaleDateString('en-GB'),
+          time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+          status: 'upcoming',
+        };
+        localStorage.setItem('cardia_appointments', JSON.stringify([appointment, ...existing]));
+      } catch {
+        setStorageWarning('Appointment booked, but could not be saved locally due to browser storage limits.');
+      }
+
       navigate('../appointments', { state: { justBooked: true } });
     } catch {
       setBookError('Booking failed. Please try again.');
@@ -69,10 +67,7 @@ export default function PatientDoctors() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <svg className="w-6 h-6 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-        </svg>
+        <Spinner />
       </div>
     );
   }
@@ -95,6 +90,12 @@ export default function PatientDoctors() {
       {bookError && (
         <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
           <p className="text-sm text-red-600">{bookError}</p>
+        </div>
+      )}
+
+      {storageWarning && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+          <p className="text-xs text-amber-700 font-medium">{storageWarning}</p>
         </div>
       )}
 

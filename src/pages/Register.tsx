@@ -5,7 +5,8 @@ import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
 import logo from '../../Logo.png';
 import { registerPatient } from '../services/patientService';
-import { isNetworkError } from '../services/api';
+import { isNetworkError, extractErrorMessage } from '../services/api';
+import { fieldCls, labelCls } from '../utils/formatters';
 
 const registerSchema = z.object({
   name: z.string().min(3, 'Name must be at least 3 characters'),
@@ -39,11 +40,6 @@ const registerSchema = z.object({
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
-const labelClass = 'block text-sm font-medium text-gray-700 mb-1.5';
-
-const fieldCls = (hasError: boolean) =>
-  `w-full border ${hasError ? 'border-red-400' : 'border-gray-300'} rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 ${hasError ? 'focus:ring-red-400' : 'focus:ring-blue-600'} focus:border-transparent transition`;
-
 export default function Register() {
   const navigate = useNavigate();
   const [serverError, setServerError] = useState('');
@@ -70,10 +66,7 @@ export default function Register() {
         setTimeout(() => navigate('/login'), 2200);
         return;
       }
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      setServerError(
-        axiosErr?.response?.data?.message ?? 'Registration failed. Please try again.'
-      );
+      setServerError(extractErrorMessage(err, 'Registration failed. Please try again.'));
     }
   };
 
@@ -93,7 +86,7 @@ export default function Register() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
 
             <div>
-              <label className={labelClass}>Full Name</label>
+              <label className={labelCls}>Full Name</label>
               <input
                 type="text"
                 {...register('name')}
@@ -105,7 +98,7 @@ export default function Register() {
             </div>
 
             <div>
-              <label className={labelClass}>Username</label>
+              <label className={labelCls}>Username</label>
               <input
                 type="text"
                 {...register('userName')}
@@ -117,7 +110,7 @@ export default function Register() {
             </div>
 
             <div>
-              <label className={labelClass}>Email Address</label>
+              <label className={labelCls}>Email Address</label>
               <input
                 type="email"
                 {...register('email')}
@@ -129,7 +122,7 @@ export default function Register() {
             </div>
 
             <div>
-              <label className={labelClass}>Password</label>
+              <label className={labelCls}>Password</label>
               <input
                 type="password"
                 {...register('password')}
@@ -141,7 +134,7 @@ export default function Register() {
             </div>
 
             <div>
-              <label className={labelClass}>Contact Number</label>
+              <label className={labelCls}>Contact Number</label>
               <input
                 type="tel"
                 {...register('contactNumber')}
@@ -153,7 +146,7 @@ export default function Register() {
             </div>
 
             <div>
-              <label className={labelClass}>Age</label>
+              <label className={labelCls}>Age</label>
               <input
                 type="number"
                 {...register('age')}
@@ -166,7 +159,7 @@ export default function Register() {
             </div>
 
             <div className="sm:col-span-2">
-              <label className={labelClass}>Street Address</label>
+              <label className={labelCls}>Street Address</label>
               <input
                 type="text"
                 {...register('streetAddress')}
@@ -178,7 +171,7 @@ export default function Register() {
             </div>
 
             <div>
-              <label className={labelClass}>City</label>
+              <label className={labelCls}>City</label>
               <input
                 type="text"
                 {...register('city')}
@@ -190,7 +183,7 @@ export default function Register() {
             </div>
 
             <div>
-              <label className={labelClass}>State</label>
+              <label className={labelCls}>State</label>
               <input
                 type="text"
                 {...register('state')}
@@ -202,7 +195,7 @@ export default function Register() {
             </div>
 
             <div>
-              <label className={labelClass}>Country</label>
+              <label className={labelCls}>Country</label>
               <input
                 type="text"
                 {...register('country')}
@@ -214,7 +207,7 @@ export default function Register() {
             </div>
 
             <div>
-              <label className={labelClass}>Assigned Doctor Email</label>
+              <label className={labelCls}>Assigned Doctor Email</label>
               <input
                 type="email"
                 {...register('doctorEmail')}
